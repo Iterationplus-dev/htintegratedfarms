@@ -105,8 +105,8 @@ jobs:
     env:
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'usir' }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/apps/htfarms' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/htfarms' }}
       APP_URL: ${{ vars.APP_URL }}
       RUN_MIGRATIONS: ${{ github.event_name != 'workflow_dispatch' || inputs.run_migrations }}
       ARTIFACT: ${{ needs.build.outputs.artifact }}
