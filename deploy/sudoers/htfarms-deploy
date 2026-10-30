@@ -1,0 +1,3 @@
+# /etc/sudoers.d/htfarms-deploy   (install with: visudo -cf <file> && install -m 0440 <file> /etc/sudoers.d/)
+# The deploy user may ONLY reload PHP-FPM — no shell, no other services, no wildcards.
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.4-fpm
