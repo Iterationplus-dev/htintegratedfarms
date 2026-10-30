@@ -142,7 +142,6 @@ jobs:
             ForwardAgent no
             ServerAliveInterval 30
           EOF
-
       - name: Upload release
         run: |
           ssh target "mkdir -p '${DEPLOY_PATH}/uploads'"
