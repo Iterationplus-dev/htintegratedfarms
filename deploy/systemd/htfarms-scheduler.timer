@@ -1,0 +1,11 @@
+# /etc/systemd/system/htfarms-scheduler.timer
+[Unit]
+Description=Run the H&T Farms Laravel scheduler every minute
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=1s
+Persistent=false
+
+[Install]
+WantedBy=timers.target

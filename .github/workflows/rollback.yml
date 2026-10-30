@@ -1,0 +1,65 @@
+# Manual rollback: points `current` back at a previous release directory on the VPS.
+# This switches CODE only. Database migrations are NOT reversed (see docs/DEPLOYMENT.md §Rollback).
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to roll back
+        type: choice
+        options: [staging, production]
+        required: true
+      release:
+        description: Release directory name to activate (leave empty for the previous release)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ vars.APP_URL }}
+    concurrency:
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/htfarms' }}
+      APP_URL: ${{ vars.APP_URL }}
+      TARGET_RELEASE: ${{ inputs.release }}
+    steps:
+      - name: Validate input
+        run: |
+          if [ -n "${TARGET_RELEASE}" ] && ! printf '%s' "${TARGET_RELEASE}" | grep -Eq '^[0-9]{14}-[0-9a-f]{7,40}$'; then
+            echo "::error::Release must look like 20261030120000-abc1234def56"; exit 1
+          fi
+
+      - name: Configure SSH (verified host key)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "${DEPLOY_KNOWN_HOSTS}" || { echo "::error::DEPLOY_KNOWN_HOSTS is not set"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          printf 'Host target\n  HostName %s\n  Port %s\n  User %s\n  IdentityFile ~/.ssh/deploy_key\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' \
+            "${DEPLOY_HOST}" "${DEPLOY_PORT}" "${DEPLOY_USER}" > ~/.ssh/config
+
+      - name: Roll back
+        run: ssh target "DEPLOY_PATH='${DEPLOY_PATH}' HEALTH_URL='${APP_URL}/health' bash '${DEPLOY_PATH}/bin/rollback.sh' '${TARGET_RELEASE}'"
+
+      - name: Health check
+        run: curl -fsS --retry 5 --retry-delay 5 --retry-all-errors --max-time 10 "${APP_URL}/health"
+
+      - name: Remove SSH material
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/config

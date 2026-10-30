@@ -1,0 +1,167 @@
+# Validate → build a versioned release artifact → deploy to the VPS over SSH.
+#   push to `staging` → staging environment
+#   push to `main`    → production environment
+#   manual run        → choose the environment (deploys the selected ref)
+#
+# Configuration lives in GitHub Environments (see docs/DEPLOYMENT.md §GitHub setup):
+#   vars:    DEPLOY_HOST, DEPLOY_PORT, DEPLOY_USER, DEPLOY_PATH, APP_URL, DEPLOY_KNOWN_HOSTS
+#   secrets: DEPLOY_SSH_KEY
+name: Deploy
+
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging, production]
+        required: true
+      run_migrations:
+        description: Run database migrations
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    name: Build release artifact
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      artifact: ${{ steps.meta.outputs.artifact }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: '8.4'
+          extensions: mbstring, intl, gd, exif, bcmath, zip, pdo_mysql
+          coverage: none
+          tools: composer:v2
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install production PHP dependencies
+        run: composer install --no-dev --no-interaction --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Build front-end assets
+        run: |
+          npm ci --ignore-scripts
+          npm run build
+
+      - name: Publish Filament assets
+        run: php artisan filament:assets --no-interaction
+
+      - name: Package release
+        id: meta
+        run: |
+          echo "${GITHUB_SHA}" > REVISION
+          name="release-${GITHUB_SHA}.tar.gz"
+          tar --exclude-vcs \
+              --exclude='./node_modules' --exclude='./tests' --exclude='./docs' \
+              --exclude='./storage' --exclude='./.env' --exclude='./.github' \
+              --exclude='./public/hot' --exclude='./public/storage' \
+              --exclude='./test-results' --exclude='./playwright-report' \
+              -czf "/tmp/${name}" .
+          mv "/tmp/${name}" .
+          sha256sum "${name}" > "${name}.sha256"
+          echo "artifact=${name}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            ${{ steps.meta.outputs.artifact }}
+            ${{ steps.meta.outputs.artifact }}.sha256
+            deploy/remote/deploy-release.sh
+          retention-days: 30
+          if-no-files-found: error
+
+  deploy:
+    name: Deploy to ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment:
+      name: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
+      url: ${{ vars.APP_URL }}
+    # One deployment per environment at a time; queued runs wait instead of cancelling a deploy mid-way.
+    concurrency:
+      group: deploy-${{ github.event_name == 'workflow_dispatch' && inputs.environment || (github.ref_name == 'main' && 'production' || 'staging') }}
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/htfarms' }}
+      APP_URL: ${{ vars.APP_URL }}
+      RUN_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.run_migrations || 'true' }}
+      ARTIFACT: ${{ needs.build.outputs.artifact }}
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-${{ github.sha }}
+
+      - name: Verify artifact checksum
+        run: sha256sum -c "${ARTIFACT}.sha256"
+
+      - name: Configure SSH (verified host key, no agent forwarding)
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ vars.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          test -n "${DEPLOY_HOST}" || { echo "::error::DEPLOY_HOST is not set for this environment"; exit 1; }
+          test -n "${DEPLOY_KNOWN_HOSTS}" || { echo "::error::DEPLOY_KNOWN_HOSTS is not set; refusing to deploy without host-key verification"; exit 1; }
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${DEPLOY_SSH_KEY}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "${DEPLOY_KNOWN_HOSTS}" > ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host target
+            HostName ${DEPLOY_HOST}
+            Port ${DEPLOY_PORT}
+            User ${DEPLOY_USER}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile ~/.ssh/known_hosts
+            ForwardAgent no
+            ServerAliveInterval 30
+          EOF
+
+      - name: Upload release
+        run: |
+          ssh target "mkdir -p '${DEPLOY_PATH}/uploads'"
+          scp "${ARTIFACT}" deploy/remote/deploy-release.sh "target:${DEPLOY_PATH}/uploads/"
+
+      - name: Activate release
+        run: |
+          ssh target "DEPLOY_PATH='${DEPLOY_PATH}' RUN_MIGRATIONS='${RUN_MIGRATIONS}' HEALTH_URL='${APP_URL}/health' \
+            bash '${DEPLOY_PATH}/uploads/deploy-release.sh' '${GITHUB_SHA}' '${DEPLOY_PATH}/uploads/${ARTIFACT}'"
+
+      - name: External health check
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 10 "${APP_URL}/health"; then echo; exit 0; fi
+            sleep 5
+          done
+          echo "::error::${APP_URL}/health did not report healthy after deployment"
+          exit 1
+
+      - name: Remove SSH material
+        if: always()
+        run: rm -f ~/.ssh/deploy_key ~/.ssh/config
