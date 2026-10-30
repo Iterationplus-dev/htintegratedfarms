@@ -1,6 +1,5 @@
 # Pull-request validation. Also called by deploy.yml so every deployment runs exactly these checks first.
 name: CI
-
 on:
   pull_request:
   push:

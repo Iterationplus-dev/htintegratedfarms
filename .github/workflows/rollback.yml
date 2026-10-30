@@ -1,7 +1,6 @@
 # Manual rollback: points `current` back at a previous release directory on the VPS.
 # This switches CODE only. Database migrations are NOT reversed (see docs/DEPLOYMENT.md §Rollback).
 name: Rollback
-
 on:
   workflow_dispatch:
     inputs:
