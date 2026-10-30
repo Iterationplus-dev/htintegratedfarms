@@ -105,10 +105,10 @@ jobs:
     env:
       DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
-      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'deploy' }}
-      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/htfarms' }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER || 'usir' }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/var/www/apps/htfarms' }}
       APP_URL: ${{ vars.APP_URL }}
-      RUN_MIGRATIONS: ${{ github.event_name == 'workflow_dispatch' && inputs.run_migrations || 'true' }}
+      RUN_MIGRATIONS: ${{ github.event_name != 'workflow_dispatch' || inputs.run_migrations }}
       ARTIFACT: ${{ needs.build.outputs.artifact }}
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
