@@ -45,7 +45,12 @@ flock -n 9 || fail "another deployment is in progress"
 
 RELEASE="$(date -u +%Y%m%d%H%M%S)-${SHA:0:12}"
 DIR="$BASE/releases/$RELEASE"
-PREVIOUS="$(readlink -f "$BASE/current" 2>/dev/null || true)"
+# Only a symlink to an existing release counts (readlink -f also "resolves" a missing path on first deploy).
+PREVIOUS=""
+if [[ -L "$BASE/current" ]]; then
+    PREVIOUS="$(readlink -f "$BASE/current" 2>/dev/null || true)"
+    [[ -n "$PREVIOUS" && -d "$PREVIOUS" && "$PREVIOUS" == "$BASE"/releases/* ]] || PREVIOUS=""
+fi
 
 log "extracting $RELEASE"
 mkdir -p "$DIR" "$BASE/bin" "$BASE/shared/storage"
@@ -95,17 +100,24 @@ switch_to "$DIR"
 healthy=true
 if [[ -n "$HEALTH_URL" ]]; then
     healthy=false
+    # Check this host's nginx (not whatever DNS or a CDN resolves to); TLS is still verified for the real name.
+    health_host="$(sed -E 's#^[a-z]+://([^/:]+).*#\1#' <<<"$HEALTH_URL")"
+    health_port="$(sed -nE 's#^[a-z]+://[^/:]+:([0-9]+).*#\1#p' <<<"$HEALTH_URL")"
+    [[ -n "$health_port" ]] || health_port="$([[ "$HEALTH_URL" == https://* ]] && echo 443 || echo 80)"
     for attempt in $(seq 1 10); do
-        if curl -fsS --max-time 10 "$HEALTH_URL" >/dev/null; then healthy=true; break; fi
+        if curl -fsS --max-time 10 --resolve "${health_host}:${health_port}:127.0.0.1" "$HEALTH_URL" >/dev/null; then healthy=true; break; fi
         log "health check attempt $attempt failed; retrying"
         sleep 3
     done
 fi
 
 if [[ "$healthy" != true ]]; then
-    if [[ -n "$PREVIOUS" && -d "$PREVIOUS" ]]; then
+    if [[ -n "$PREVIOUS" ]]; then
         log "health check failed; restoring $(basename "$PREVIOUS")"
         switch_to "$PREVIOUS"
+    else
+        log "health check failed on first deploy; removing current (nothing to restore)"
+        rm -f "$BASE/current"
     fi
     trap - ERR
     fail "release $RELEASE failed its health check (database changes, if any, were NOT reverted)"

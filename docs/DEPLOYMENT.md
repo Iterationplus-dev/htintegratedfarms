@@ -165,6 +165,7 @@ Scheduled tasks: `model:prune` (expired quote drafts), `queue:prune-failed`, `qu
 | Symptom | Check |
 |---|---|
 | Deploy fails at "Configure SSH" | `DEPLOY_KNOWN_HOSTS` and `DEPLOY_SSH_KEY` set on the **environment** (not the repository)? |
+| Health check: `SSL: no alternative certificate subject name matches` | Nginx has no HTTPS vhost or certificate for the domain yet, so it serves another site's default certificate. Install the vhost and issue the certificate (§1), then `nginx -t && systemctl reload nginx`. |
 | `Host key verification failed` | The server's host key changed; re-verify and update `DEPLOY_KNOWN_HOSTS`. Do not disable checking. |
 | `sudo: a password is required` | `/etc/sudoers.d/htfarms-deploy` missing, or the PHP version in the rule doesn't match `PHP_FPM_SERVICE`. |
 | Deploy rolled back after "health check failed" | `curl -v https://<host>/health`, `tail shared/storage/logs/laravel-*.log`. The cause is usually `.env` (DB/Redis credentials) or a migration. |
