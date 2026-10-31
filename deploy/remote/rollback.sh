@@ -7,8 +7,8 @@
 set -Eeuo pipefail
 
 BASE="${DEPLOY_PATH:-/var/www/htfarms}"
-PHP_BIN="${PHP_BIN:-php}"
-FPM_SERVICE="${PHP_FPM_SERVICE:-php8.4-fpm}"
+PHP_BIN="${PHP_BIN:-php8.5}"
+FPM_SERVICE="${PHP_FPM_SERVICE:-php8.5-fpm}"
 HEALTH_URL="${HEALTH_URL:-}"
 TARGET="${1:-}"
 

@@ -1,6 +1,6 @@
 # Deployment and operations
 
-Target: one Ubuntu 24.04 LTS VPS (2 vCPU / 4 GB RAM is comfortable) running Nginx, PHP 8.4-FPM, MySQL 8.4,
+Target: one Ubuntu 24.04 LTS VPS (2 vCPU / 4 GB RAM is comfortable) running Nginx, PHP 8.5-FPM, MySQL 8.4,
 Redis, Supervisor and systemd timers. Staging can share the server under a separate path, database, PHP-FPM
 pool and Nginx vhost.
 
@@ -22,11 +22,11 @@ From a checkout of this repository on the server:
 sudo DOMAIN=htintegratedfarms.com ADMIN_EMAIL=ops@htintegratedfarms.com bash deploy/provision/provision-ubuntu.sh
 ```
 
-The script installs the packages (PHP 8.4 extensions: fpm, cli, mysql, redis, mbstring, xml, curl, zip,
-gd, intl, bcmath, opcache, sqlite3), enables the firewall (SSH and HTTP/S only), creates the `deploy` user
+The script installs the packages (PHP 8.5 extensions: fpm, cli, mysql, redis, mbstring, xml, curl, zip,
+gd, intl, bcmath, sqlite3; OPcache is built into PHP 8.5), enables the firewall (SSH and HTTP/S only), creates the `deploy` user
 (SSH key only, member of `www-data`), the directory layout with group-writable `shared/storage`, the PHP-FPM
 pool (`deploy/php/`), the restricted sudoers rule (`deploy/sudoers/` lets the deploy user run only
-`systemctl reload php8.4-fpm`), Supervisor workers, the scheduler and backup timers, logrotate, and the
+`systemctl reload php8.5-fpm`), Supervisor workers, the scheduler and backup timers, logrotate, and the
 Nginx vhost. It is safe to re-run. Then complete these steps by hand:
 
 1. **Deploy key**: create an ed25519 key pair for GitHub
@@ -152,7 +152,7 @@ Test a restore on staging at least once a quarter.
 |---|---|
 | Application | `shared/storage/logs/laravel-YYYY-MM-DD.log` (daily, 14 days) |
 | Queue workers | `shared/storage/logs/worker.log` (logrotate weekly) |
-| PHP-FPM pool | `/var/log/php8.4-fpm-htfarms.log` |
+| PHP-FPM pool | `/var/log/php8.5-fpm-htfarms.log` |
 | Nginx | `/var/log/nginx/htfarms.{access,error}.log` |
 | Scheduler heartbeat | `shared/storage/logs/scheduler-heartbeat` (updated every 5 min) |
 | Health | `GET /health` (point an uptime monitor at it) |

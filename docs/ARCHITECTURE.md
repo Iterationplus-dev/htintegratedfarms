@@ -7,7 +7,7 @@ Source of truth for visuals and documented interactions: `docs/design_handoff_ht
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Runtime | PHP 8.4 (prod/CI), 8.4+ local | `composer.json` pins `config.platform.php = 8.4.0` so the lockfile always resolves for production. |
+| Runtime | PHP 8.5 (prod, CI and local) | `composer.json` pins `config.platform.php = 8.5.0` so the lockfile always resolves for production. |
 | Framework | Laravel 13 | Current major. |
 | Server-driven UI | Livewire 4 | The handoff names Livewire 3. Livewire 4 is the supported major and keeps the v3 API the handoff relies on (`#[Validate]`, `#[Url]`, `wire:loading`). Filament 5 requires it. |
 | Client behaviour | Alpine.js (bundled with Livewire) + TypeScript modules | We use **Livewire's own Alpine** from `livewire.esm`, so Alpine starts once. |

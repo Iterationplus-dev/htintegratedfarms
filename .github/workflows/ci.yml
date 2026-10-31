@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
-  PHP_VERSION: '8.4'
+  PHP_VERSION: '8.5'
   NODE_VERSION: '22'
   PHP_EXTENSIONS: mbstring, intl, gd, exif, bcmath, zip, pdo_mysql, pdo_sqlite, sqlite3
 

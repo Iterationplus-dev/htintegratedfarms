@@ -21,8 +21,8 @@ ARCHIVE="${2:?usage: deploy-release.sh <sha> <archive>}"
 BASE="${DEPLOY_PATH:-/var/www/htfarms}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
 RUN_MIGRATIONS="${RUN_MIGRATIONS:-true}"
-PHP_BIN="${PHP_BIN:-php}"
-FPM_SERVICE="${PHP_FPM_SERVICE:-php8.4-fpm}"
+PHP_BIN="${PHP_BIN:-php8.5}"
+FPM_SERVICE="${PHP_FPM_SERVICE:-php8.5-fpm}"
 HEALTH_URL="${HEALTH_URL:-}"
 
 log() { printf '[deploy %s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
@@ -33,6 +33,11 @@ fail() { log "ERROR: $*"; exit 1; }
 [[ -f "$BASE/shared/.env" ]] || fail "missing $BASE/shared/.env (see docs/DEPLOYMENT.md)"
 grep -Eq '^APP_KEY=base64:.{40,}' "$BASE/shared/.env" || fail "APP_KEY is not set in shared/.env"
 grep -Eq '^APP_DEBUG=(false|0)\s*$' "$BASE/shared/.env" || fail "APP_DEBUG must be false in production/staging"
+command -v "$PHP_BIN" >/dev/null || fail "$PHP_BIN not found (install the PHP CLI or set PHP_BIN)"
+PHP_MODULES="$("$PHP_BIN" -m)"
+for ext in pdo_mysql mbstring xml curl zip gd intl bcmath redis; do
+    grep -qix "$ext" <<<"$PHP_MODULES" || fail "PHP extension '$ext' missing for $PHP_BIN (apt-get install ${PHP_BIN}-${ext/pdo_/})"
+done
 
 # Serialise deploys on the host too (GitHub concurrency already prevents overlaps per environment).
 exec 9>"$BASE/.deploy.lock"

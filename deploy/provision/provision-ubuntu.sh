@@ -12,7 +12,7 @@ DOMAIN="${DOMAIN:?set DOMAIN, e.g. htintegratedfarms.com}"
 ADMIN_EMAIL="${ADMIN_EMAIL:?set ADMIN_EMAIL for the TLS certificate}"
 APP_PATH="${APP_PATH:-/var/www/htfarms}"
 DEPLOY_USER="${DEPLOY_USER:-deploy}"
-PHP_VERSION="8.4"
+PHP_VERSION="8.5"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 [[ $EUID -eq 0 ]] || { echo "Run as root"; exit 1; }
@@ -25,7 +25,7 @@ apt-get update
 apt-get install -y nginx mysql-server redis-server supervisor certbot python3-certbot-nginx ufw rsync \
     "php${PHP_VERSION}-fpm" "php${PHP_VERSION}-cli" "php${PHP_VERSION}-mysql" "php${PHP_VERSION}-redis" \
     "php${PHP_VERSION}-mbstring" "php${PHP_VERSION}-xml" "php${PHP_VERSION}-curl" "php${PHP_VERSION}-zip" \
-    "php${PHP_VERSION}-gd" "php${PHP_VERSION}-intl" "php${PHP_VERSION}-bcmath" "php${PHP_VERSION}-opcache" \
+    "php${PHP_VERSION}-gd" "php${PHP_VERSION}-intl" "php${PHP_VERSION}-bcmath" \
     "php${PHP_VERSION}-sqlite3"
 
 echo "== Firewall"

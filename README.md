@@ -19,7 +19,7 @@ Vite · Filament 5 (admin) · Spatie Media Library · MySQL 8.4 · Redis.
 
 ## Local setup
 
-Requirements: PHP 8.4+ (extensions: gd with WebP, intl, mbstring, pdo_sqlite or pdo_mysql, zip, exif),
+Requirements: PHP 8.5+ (extensions: gd with WebP, intl, mbstring, pdo_sqlite or pdo_mysql, zip, exif),
 Composer 2, Node 22+.
 
 ```bash

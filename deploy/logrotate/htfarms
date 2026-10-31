@@ -2,7 +2,7 @@
 # Laravel itself writes daily files (LOG_STACK=daily, LOG_DAILY_DAYS=14) and prunes them;
 # this rotates the queue-worker output and the PHP-FPM pool error log.
 /var/www/htfarms/shared/storage/logs/worker.log
-/var/log/php8.4-fpm-htfarms.log {
+/var/log/php8.5-fpm-htfarms.log {
     weekly
     rotate 8
     missingok

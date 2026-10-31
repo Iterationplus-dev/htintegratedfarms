@@ -9,5 +9,5 @@ User=www-data
 Group=www-data
 UMask=0002
 WorkingDirectory=/var/www/htfarms/current
-ExecStart=/usr/bin/php /var/www/htfarms/current/artisan schedule:run --no-interaction
+ExecStart=/usr/bin/php8.5 /var/www/htfarms/current/artisan schedule:run --no-interaction
 Nice=10
